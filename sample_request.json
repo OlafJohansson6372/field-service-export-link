@@ -1,0 +1,27 @@
+{
+  "export_id": "batch-2026-03-14",
+  "requested_by": "dispatch@acme.test",
+  "work_orders": [
+    {
+      "work_order_id": "WO-1001",
+      "dispatch_status": "completed",
+      "photo_keys": [
+        "photos/WO-1001/front.jpg",
+        "photos/WO-1001/panel.jpg"
+      ],
+      "technician_note": "Need customer callback about replacement panel.",
+      "customer_name": "River Street Studio",
+      "scheduled_date": "2026-03-14"
+    },
+    {
+      "work_order_id": "WO-1002",
+      "dispatch_status": "completed",
+      "photo_keys": [
+        "photos/WO-1002/after.jpg"
+      ],
+      "technician_note": "Installed and tested successfully.",
+      "customer_name": "North Pier Cafe",
+      "scheduled_date": "2026-03-14"
+    }
+  ]
+}
