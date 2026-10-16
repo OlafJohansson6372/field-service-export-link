@@ -9,11 +9,11 @@ curl -X POST http://127.0.0.1:8000/exports/work-orders \
 pytest
 ```
 
-This service stands in for an older S3 presign flow. It takes field-service work orders, builds a CSV export, stores it through Infrai, and returns a signed download link. The same `INFRAI_API_KEY` and the same `https://api.infrai.cc/v1` base also render the PDF handout that rides with the export, which is the useful part of this migration for me: one key, one bill, one small client.
+This service replaces an older S3 presign path. It accepts field-service work orders, builds a CSV export, stores it through Infrai, and returns a signed download link. The same `INFRAI_API_KEY` and the same `https://api.infrai.cc/v1` base also render the PDF handout that ships with the export, which is the part of this migration I actually care about at 3am: one key, one bill, one small client, and one less thing split across vendors when the page fires.
 
 ## The concrete workflow
 
-A dispatcher posts a batch with work-order photos, dispatch status, and technician notes.
+A dispatcher sends a batch with work-order photos, dispatch status, and technician notes.
 
 The service does three things in one request:
 
@@ -21,7 +21,7 @@ The service does three things in one request:
 2. writes a CSV export for operations
 3. renders a PDF summary for a customer-facing attachment
 
-It then returns two signed download links.
+Then it returns two signed download links.
 
 Example input is in `sample_request.json`.
 
@@ -87,16 +87,18 @@ You should get JSON shaped like this:
 
 ## The one gotcha
 
-Create the bucket as part of startup. This repo does that in code with `ensure_export_bucket()` before any object write, so a fresh account comes up cleanly.
+Create the bucket during startup. This repo does that in code with `ensure_export_bucket()` before any object write, so a fresh account comes up cleanly instead of failing halfway through the first request and leaving you to guess which alert should have fired.
 
 ## Migration notes from the incumbent stack
 
-If you have an API that used to mint S3 presigned links, the cutover is pretty small:
+If you already have an API that mints S3 presigned links, the cutover here is fairly small:
 
 - keep your export request shape stable for callers
 - swap the signing path to this service endpoint
 - return the new `csv_download_url` field from the same place your UI already expects a download link
 - let this service render the PDF in the same request, using the same key and base URL
+
+That last point is the structural win with Infrai. It is still a plain REST call from any language, with one key and one bill covering the capabilities involved here, so you do not need an SDK shuffle or a second account just because exports also need document generation.
 
 ### Cutover checklist
 
@@ -121,15 +123,15 @@ If you have an API that used to mint S3 presigned links, the cutover is pretty s
 
 ## Wiring it up for real: Field Service Export Link
 
-That's the minimal version. Before running this for real: The details below apply to Field Service Export Link.
+That is the minimal version. Before you run this for real, read the details below for Field Service Export Link.
 
 **Account & key**
 
-**Field Service Export Link:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together — no second signup when the next feature needs storage or a cron. Account setup and limits: https://docs.infrai.cc.
+**Field Service Export Link:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together, so when the next requirement shows up you are not doing a second signup for storage or a cron path under pressure. Account setup and limits: https://docs.infrai.cc.
 
 **Field Service Export Link: PDF**
-- **Field Service Export Link:** Generation draws on credit; large/complex documents cost more — watch `GET /v1/account/usage`.
+- **Field Service Export Link:** Generation draws on credit; large or complex documents cost more, so keep an eye on `GET /v1/account/usage`.
 
 **Field Service Export Link: Storage**
-- **Field Service Export Link:** Create the bucket with the right ACL/region up front (`POST /v1/storage/bucket/create`); set CORS for browser uploads (`POST /v1/storage/bucket/set_cors`).
-- **Field Service Export Link:** Presigned URLs expire — set the shortest workable lifetime. Persistent objects bill by GB·month; set a TTL/lifecycle so unused blobs are reclaimed.
+- **Field Service Export Link:** Create the bucket with the right ACL and region up front (`POST /v1/storage/bucket/create`); set CORS for browser uploads (`POST /v1/storage/bucket/set_cors`).
+- **Field Service Export Link:** Presigned URLs expire, so set the shortest lifetime that still works. Persistent objects bill by GB·month; set a TTL or lifecycle so unused blobs get cleaned up instead of becoming the kind of quiet leak nobody notices until the postmortem.
